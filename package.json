@@ -1,0 +1,15 @@
+{
+  "name": "irisjs-revisions",
+  "version": "1.0.0",
+  "description": "Revision system for the Iris system",
+  "main": "revisions.js",
+  "dependencies": {
+    "jsondiffpatch": "^0.1.43"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FilipNest/iris-revisions.git"
+  },
+  "author": "FilipNest",
+  "license": "GPL-2.0"
+}

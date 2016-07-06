@@ -6,23 +6,24 @@ process.on("dbReady", function () {
 
   iris.modules.revisions.globals.collections = {};
 
-  var collections = Object.keys(iris.dbCollections);
+  var collections = Object.keys(iris.entityTypes);
 
   collections.forEach(function (collection) {
 
-    var schema = new mongoose.Schema({
-      eid: {
-        type: Number
-      },
-      revisions: {
-        type: [{
-          date: Date,
-          diff: mongoose.Schema.Types.Mixed
-        }]
+    var fields = {
+      "revisions": {
+        "fieldType": "Revision"
       }
-    });
+    };
 
-    iris.modules.revisions.globals.collections[collection] = mongoose.model("revisions_" + collection, schema);
+    iris.dbSchemaRegister(collection + "_revisions", fields, false).then(function (pass) {
+
+
+
+    }, function (fail) {
+
+
+    });
 
   })
 
@@ -33,27 +34,68 @@ var saveRevision = function (current, previous) {
 
   return new Promise(function (resolve, reject) {
 
+
     var diff = jsondiffpatch.diff(previous, current);
 
-    var revisions = iris.modules.revisions.globals.collections[current.entityType];
+    iris.invokeHook("hook_entity_fetch", "root", null, {
+      entities: [current.entityType + "_revisions"],
+      queries: [{
+        "field": "eid",
+        "operator": "is",
+        value: current.eid
+      }]
+    }).then(function (item) {
 
-    revisions.findOneAndUpdate({
-      "eid": current.eid
-    }, {
-      $push: {
-        "revisions": {
-          date: Date.now(),
-          diff: diff
+      if (!item || !item.length) {
+
+        var diffEntry = {
+          diff: JSON.stringify(diff),
+          date: Date.now()
         }
+
+        var revision = {
+          entityType: current.entityType + "_revisions",
+          eid: current.eid,
+          revisions: [diffEntry]
+        }
+
+        iris.invokeHook("hook_entity_create", "root", null, revision).then(function (updated) {
+
+          resolve();
+
+
+        }, function (fail) {
+
+          iris.log("error", fail);
+
+        })
+
+      } else {
+
+        var diffEntry = {
+          diff: JSON.stringify(diff),
+          date: Date.now()
+        }
+
+        var revision = {
+          entityType: current.entityType + "_revisions",
+          eid: current.eid,
+          revisions: [diffEntry].concat(item[0].revisions)
+        }
+
+        iris.invokeHook("hook_entity_edit", "root", null, revision).then(function (updated) {
+
+          resolve();
+
+        }, function (fail) {
+
+          iris.log("error", fail);
+
+        })
+
       }
-    }, {
-      new: true,
-      upsert: true
-    }, function (err, doc) {
 
-      resolve();
-
-    });
+    })
 
   })
 
@@ -82,28 +124,44 @@ iris.modules.revisions.registerHook("hook_entity_updated", 0, function (thisHook
 
 });
 
+
+
 iris.modules.revisions.globals.getRevision = function (entityType, eid, revisionID, authPass) {
 
   return new Promise(function (resolve, reject) {
 
-    iris.modules.revisions.globals.collections[entityType].findOne({
-      "eid": parseInt(eid)
-    }, function (err, revisions) {
+    iris.invokeHook("hook_entity_fetch", "root", null, {
+      entities: [entityType + "_revisions"],
+      queries: [{
+        "field": "eid",
+        "operator": "is",
+        value: eid
+      }]
+    }).then(function (item) {
 
-      if (err) {
+      var revisions;
 
-        res.status(500).send(err);
-        return false;
+      if (item && item.length) {
 
-      }
+        revisions = item[0].revisions.reverse();
 
-      if (revisions) {
+        var query = {
+          "entities": [entityType],
+          "queries": [{
+            "field": "eid",
+            "operator": "is",
+            "value": parseInt(eid)
+          }]
 
-        revisions = revisions.revisions.reverse();
+        }
 
-        iris.dbCollections[entityType].findOne({
-          eid: parseInt(eid)
-        }, function (err, current) {
+        iris.invokeHook("hook_entity_fetch", authPass, null, query).then(function (entity) {
+
+          if (entity && entity[0]) {
+
+            var current = entity[0];
+
+          }
 
           if (current) {
 
@@ -122,10 +180,20 @@ iris.modules.revisions.globals.getRevision = function (entityType, eid, revision
             }
 
 
-            var patched = current.toObject();
+            var patched = current;
             var date;
 
             for (i = 0; i < revisions.length - revisionID; i += 1) {
+              
+              if(revisions[i].diff){
+                
+                revisions[i].diff = JSON.parse(revisions[i].diff)
+                
+              } else {
+                
+                revisions[i].diff = undefined;
+                
+              }
 
               patched = jsondiffpatch.unpatch(patched, revisions[i].diff);
               date = revisions[i].date;
@@ -172,6 +240,10 @@ iris.modules.revisions.globals.getRevision = function (entityType, eid, revision
 
           }
 
+        }, function (fail) {
+
+          reject(400);
+
         });
 
       } else {
@@ -196,6 +268,8 @@ iris.route.get("/revisions/:type/:eid/:back", function (req, res) {
     var date;
 
     if (revision.date) {
+
+      revision.date = new Date(revision.date);
 
       date = revision.date.getDate() + "/" + revision.date.getMonth() + "/" + revision.date.getFullYear() + " @ " + revision.date.getHours() + ":" + revision.date.getMinutes();
 
@@ -390,27 +464,31 @@ iris.route.get("/revisions/:entityType/:eid", {
 
   // Find revisions
 
-  iris.modules.revisions.globals.collections[req.params.entityType].findOne({
-    "eid": parseInt(req.params.eid)
-  }, function (err, revisions) {
+  iris.invokeHook("hook_entity_fetch", "root", null, {
+    entities: [req.params.entityType + "_revisions"],
+    queries: [{
+      "field": "eid",
+      "operator": "is",
+      value: req.params.eid
+      }]
+  }).then(function (item) {
 
-    if (err) {
+    var revisions;
 
-      res.status(500).send(err);
-      return false;
-
-    }
-
-    if (!revisions || !revisions.revisions) {
+    if (!item || !item[0]) {
 
       revisions = {
         revisions: null
       }
 
+    } else {
+
+      revisions = item[0].revisions
+
     }
 
     iris.modules.frontend.globals.parseTemplateFile(["entity_revisions"], ["admin_wrapper"], {
-      revisions: revisions.revisions,
+      revisions: revisions,
       entityType: req.params.entityType,
       eid: req.params.eid
     }, req.authPass, req).then(function (success) {

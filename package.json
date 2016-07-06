@@ -8,8 +8,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FilipNest/irisjs-revisions.git"
+    "url": "git+https://github.com/FilipNest/irisjs-revisions.git"
   },
-  "author": "FilipNest",
-  "license": "GPL-2.0"
+  "author": {
+    "name": "FilipNest"
+  },
+  "license": "GPL-2.0",
+  "readme": "# irisjs-revisions\r\n\r\nA revision system for the Iris content management system and framework (https://www.npmjs.com/package/irisjs)\r\n\r\n## Installation \r\n\r\n* `npm install irisjs-revisions`\r\n* Enable module through Iris administration system.\r\n\r\nYou'll need an `      {{{iris_messages}}}` block in your theme to skip through revisions. \r\n",
+  "readmeFilename": "README.md",
+  "gitHead": "833086a5b6488e87dfb68c3e6f69699b577f2c31",
+  "bugs": {
+    "url": "https://github.com/FilipNest/irisjs-revisions/issues"
+  },
+  "homepage": "https://github.com/FilipNest/irisjs-revisions#readme",
+  "_id": "irisjs-revisions@1.0.0",
+  "scripts": {},
+  "_shasum": "94427a608469a4454cc4cf87ef9696564cded95b",
+  "_from": "irisjs-revisions@latest"
 }

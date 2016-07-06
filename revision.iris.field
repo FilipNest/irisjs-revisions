@@ -1,0 +1,8 @@
+{
+  "name": "Revision",
+  "type": [{
+    "date": "Date",
+    "diff": "String"
+  }],
+  "hidden": true
+}

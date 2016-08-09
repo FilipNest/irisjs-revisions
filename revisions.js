@@ -16,7 +16,7 @@ process.on("dbReady", function () {
       }
     };
 
-    iris.dbSchemaRegister(collection + "_revisions", fields, false).then(function (pass) {
+    iris.dbSchemaRegister(collection + "_revisions", fields).then(function (pass) {
 
 
 
@@ -34,6 +34,12 @@ var saveRevision = function (current, previous) {
 
   return new Promise(function (resolve, reject) {
 
+    if (current.entityType.indexOf("_revisions") != -1) {
+
+      resolve();
+      return false;
+
+    }
 
     var diff = jsondiffpatch.diff(previous, current);
 
@@ -62,7 +68,6 @@ var saveRevision = function (current, previous) {
         iris.invokeHook("hook_entity_create", "root", null, revision).then(function (updated) {
 
           resolve();
-
 
         }, function (fail) {
 
@@ -184,15 +189,15 @@ iris.modules.revisions.globals.getRevision = function (entityType, eid, revision
             var date;
 
             for (i = 0; i < revisions.length - revisionID; i += 1) {
-              
-              if(revisions[i].diff){
-                
+
+              if (revisions[i].diff) {
+
                 revisions[i].diff = JSON.parse(revisions[i].diff)
-                
+
               } else {
-                
+
                 revisions[i].diff = undefined;
-                
+
               }
 
               patched = jsondiffpatch.unpatch(patched, revisions[i].diff);
